@@ -1,0 +1,169 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoleName {
+  ADMIN
+  ANALYST
+  VIEWER
+}
+
+enum EventType {
+  COMMIT
+  ISSUE_OPENED
+  ISSUE_CLOSED
+  PR_OPENED
+  PR_CLOSED
+  BRANCH
+}
+
+model Role {
+  id    Int      @id @default(autoincrement())
+  name  RoleName @unique
+  users User[]
+}
+
+model User {
+  id           Int           @id @default(autoincrement())
+  fullName     String
+  email        String        @unique
+  password     String
+  roleId       Int
+  role         Role          @relation(fields: [roleId], references: [id])
+  repositories Repository[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Repository {
+  id           Int             @id @default(autoincrement())
+  name         String
+  fullName     String
+  owner        String
+  url          String
+  description  String?
+  isActive     Boolean         @default(true)
+  lastSyncedAt DateTime?
+  userId       Int
+  user         User            @relation(fields: [userId], references: [id])
+  branches     Branch[]
+  activities   ActivityEvent[]
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@unique([fullName, userId])
+}
+
+model Branch {
+  id           Int        @id @default(autoincrement())
+  name         String
+  repositoryId Int
+  repository   Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+}
+
+model ActivityEvent {
+  id            Int        @id @default(autoincrement())
+  githubEventId String?
+  type          EventType
+  title         String
+  description   String?
+  author        String
+  authorAvatar  String?
+  occurredAt    DateTime
+  repositoryId  Intimport { PrismaClient, RoleName } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
+
+const prisma = new PrismaClient();
+
+async function main() {
+  const adminRole = await prisma.role.upsert({
+    where: { name: RoleName.ADMIN },
+    update: {},
+    create: { name: RoleName.ADMIN },
+  });
+
+  const analystRole = await prisma.role.upsert({
+    where: { name: RoleName.ANALYST },
+    update: {},
+    create: { name: RoleName.ANALYST },
+  });
+
+  const viewerRole = await prisma.role.upsert({
+    where: { name: RoleName.VIEWER },
+    update: {},
+    create: { name: RoleName.VIEWER },
+  });
+
+  const adminPassword = await bcrypt.hash('admin123', 10);
+  const guestPassword = await bcrypt.hash('guest123', 10);
+
+  await prisma.user.upsert({
+    where: { email: 'admin@example.com' },
+    update: {
+      fullName: 'Admin User',
+      password: adminPassword,
+      roleId: adminRole.id,
+    },
+    create: {
+      fullName: 'Admin User',
+      email: 'admin@example.com',
+      password: adminPassword,
+      roleId: adminRole.id,
+    },
+  });
+
+  await prisma.user.upsert({
+    where: { email: 'guest@example.com' },
+    update: {
+      fullName: 'Guest User',
+      password: guestPassword,
+      roleId: viewerRole.id,
+    },
+    create: {
+      fullName: 'Guest User',
+      email: 'guest@example.com',
+      password: guestPassword,
+      roleId: viewerRole.id,
+    },
+  });
+
+  await prisma.user.upsert({
+    where: { email: 'analyst@example.com' },
+    update: {
+      fullName: 'Analyst User',
+      password: guestPassword,
+      roleId: analystRole.id,
+    },
+    create: {
+      fullName: 'Analyst User',
+      email: 'analyst@example.com',
+      password: guestPassword,
+      roleId: analystRole.id,
+    },
+  });
+
+  console.log('Seed finished successfully');
+}
+
+main()
+  .then(async () => {
+    await prisma.$disconnect();
+  })
+  .catch(async (error) => {
+    console.error(error);
+    await prisma.$disconnect();
+    process.exit(1);
+  });
+  repository    Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  createdAt     DateTime   @default(now())
+
+  @@index([repositoryId])
+  @@index([author])
+  @@index([occurredAt])
+}
