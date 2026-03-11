@@ -23,13 +23,15 @@ services:
     depends_on:
       - postgres
     environment:
-      DATABASE_URL: postgresql://postgres:5678@postgres:5432/github_dashboard?schema=public
+      # PROMENA: Ovde koristimo IME KONTEJNERA baze da bi je backend video
+      DATABASE_URL: postgresql://postgres:5678@github_dashboard_postgres:5432/github_dashboard?schema=public
       JWT_SECRET: super-secret-key
       PORT: 4000
       GITHUB_TOKEN: ${GITHUB_TOKEN}
     ports:
       - "4000:4000"
-    command: sh -c "npx prisma generate && npx prisma migrate deploy && npm run start"
+    # PROMENA: Dodajemo 'db push' jer je on "pametniji" za inicijalno punjenje baze od deploy-a
+    command: sh -c "npx prisma generate && npx prisma db push && npm run start"
 
   frontend:
     build:
